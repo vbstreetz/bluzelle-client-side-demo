@@ -1,32 +1,22 @@
 <script>
   import { onMount } from 'svelte';
-  import { writable } from 'svelte/store';
   import account from '../utils/account';
   import sl from '../utils/sl';
-  import { TOKEN_PREFIX, TOKEN_SYMBOL } from '../config';
+  const ADDRESS_PREFIX = 'bluzelle';
 
   let address;
   let balance;
-  let kvs = writable([]);
+  let kvs = [];
 
-  onMount(async function() {
+  onMount(async function () {
     if (await account.loadPrivateKeyFromCache()) {
       await loadAccount();
     }
   });
 
-  async function loadKVs() {
-    const { keyvalues } = await account.query(
-      `/crud/keyvalues/${address}`,
-    );
-    kvs.set(keyvalues);
-  }
-
   async function connectAccount() {
     const mnemonic = prompt('Enter mnemonic:');
-    // const mnemonic = 'around buzz diagram captain obtain detail salon mango muffin brother morning jeans display attend knife carry green dwarf vendor hungry fan route pumpkin car';
-    if (!mnemonic) return;
-    if (await account.loadPrivateKeyFromMnemonic(mnemonic)) {
+    if (mnemonic && await account.loadPrivateKeyFromMnemonic(mnemonic)) {
       await loadAccount();
     }
   }
@@ -37,7 +27,7 @@
   }
 
   async function loadAccount() {
-    address = account.deriveAddress(TOKEN_PREFIX);
+    address = account.deriveAddress(ADDRESS_PREFIX);
     await account.loadAccount();
     const { coins } = account.account;
     for (let i = 0; i < coins.length; i++) {
@@ -50,11 +40,21 @@
     await loadKVs();
   }
 
+  async function loadKVs() {
+    const { keyvalues } = await account.query(`/crud/keyvalues/${address}`);
+    kvs = keyvalues;
+  }
+
   async function onAddKey() {
     try {
       const Key = prompt('Key?');
       if (Key) {
-        await account.tx('post', '/crud/create', { Key, UUID: address, Value: 'value' });
+        await account.tx('post', '/crud/create', {
+        Key,
+        Owner: address,
+        UUID: address,
+        Value: 'value',
+      });
         sl('success', 'ADDED KEY!');
         await loadKVs();
       }
@@ -65,7 +65,7 @@
 
   async function onDeleteKey(Key) {
     try {
-      await account.tx('delete', '/crud/delete', { Key, UUID: address });
+      await account.tx('delete', '/crud/delete', { Key, Owner: address, UUID: address });
       sl('success', 'DELETED KEY!');
       await loadKVs();
     } catch (e) {
@@ -75,7 +75,7 @@
 
   async function onDeleteAll() {
     try {
-      await account.tx('post', '/crud/deleteall', { UUID: address });
+      await account.tx('post', '/crud/deleteall', { Owner: address, UUID: address });
       sl('success', 'DELETED ALL KEYS!');
       await loadKVs();
     } catch (e) {
@@ -93,6 +93,7 @@
 <div class="flex justify-center">
   <div class="main-container flex flex-col">
     {#if address}
+        <!-- -->
     {:else}
       <div class="mb-5">
         <small>sample mnemonic: <strong>around buzz diagram captain obtain detail salon mango muffin brother morning
@@ -116,7 +117,7 @@
     {#if address}
       <div class="mb-5">
         <div>Account: {address}</div>
-        <div>Balance: {balance} {TOKEN_SYMBOL}</div>
+        <div>Balance: {balance}ubnt</div>
         <div>UUID: {address}</div>
       </div>
       <div class="flex mb-5 items-center">
@@ -141,7 +142,7 @@
         </tr>
         </thead>
         <tbody>
-        {#each $kvs as kv}
+        {#each kvs as kv}
           <tr>
             <td>{kv.key}</td>
             <td>{kv.value}</td>

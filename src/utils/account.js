@@ -1,224 +1,32 @@
-// Most funcs here have been adapted from https://github.com/bluzelle/blzjs/blob/devel/src/swarmClient/cosmos.js
-import shajs from 'sha.js';
-import ripemd160 from 'ripemd160';
-import ec from 'elliptic';
-import { Buffer } from 'buffer/';
-import BN from 'bn.js';
-import bech32 from 'bech32';
-import bitcoinjs from 'bitcoinjs-lib';
-import bip32 from 'bip32';
-import bip39 from 'bip39';
+import NProgress from 'nprogress';
+import Cosmos from './cosmos';
 
-import cache from './cache';
-import { HD_PATH } from '../config';
-import xhr from './xhr';
-import { CHAIN_ID } from '../config';
+// const API_HOST = 'http://testnet.public.bluzelle.com:1317';
+const CHAIN_ID = 'bluzelle';
 
-const BROADCAST_MAX_RETRIES = 10;
-const BROADCAST_RETRY_INTERVAL_SECONDS = 1;
-
-const secp256k1 = new ec.ec('secp256k1');
-
-export default new (class {
-  constructor() {}
-
-  async loadPrivateKeyFromMnemonic(mnemonic) {
-    const seed = await bip39.mnemonicToSeed(mnemonic);
-    const node = await bip32.fromSeed(seed);
-    const child = node.derivePath(HD_PATH);
-    const ecpair = bitcoinjs.ECPair.fromPrivateKey(child.privateKey, {
-      compressed: false,
-    });
-    this.privateKey = ecpair.privateKey.toString('hex');
-    this.storePrivateKeyInCache(this.privateKey);
-    return true;
-  }
-
-  loadPrivateKeyFromCache() {
-    this.privateKey = cache('priv-key');
-    return !!this.privateKey;
-  }
-
-  storePrivateKeyInCache(key) {
-    cache('priv-key', key);
-  }
-
-  getPublicKey() {
-    return secp256k1
-      .keyFromPrivate(this.privateKey, 'hex')
-      .getPublic(true, 'hex');
-  }
-
-  deriveAddress(prefix = 'cosmos') {
-    const s = shajs('sha256')
-      .update(Buffer.from(this.getPublicKey(), 'hex'))
-      .digest();
-    const r = new ripemd160().update(s).digest();
-    const bytes = r;
-    this.address = bech32.encode(prefix, bech32.toWords(bytes));
-    return this.address;
-  }
-
-  disconnect() {
-    this.storePrivateKeyInCache(null);
-  }
-
-  async loadAccount() {
-    this.account = (await this.query(`/auth/accounts/${this.address}`)).value;
-  }
-
-  async query(endpoint) {
-    return (await xhr('get', endpoint)).result;
-  }
-
-  async tx(method, endpoint, data) {
-    const tx = await this.validateTransaction(method, endpoint, data);
-    return await this.broadcastSignedTransaction(tx);
-  }
-
-  async validateTransaction(method, endpoint, data) {
-    const { value: tx } = await xhr(
-      method,
-      endpoint,
-      sortJSON({
-        BaseReq: {
-          chain_id: CHAIN_ID,
-          from: this.address,
-        },
-        Owner: this.address,
-        ...data,
-      })
-    );
-    return tx;
-  }
-
-  async broadcastSignedTransaction(tx) {
-    tx.memo = makeRandomString(32);
-
-    tx.fee = {
-      amount: [{ amount: '4000001', denom: 'ubnt' }],
-      gas: tx.fee.gas,
-    };
-
-    const m = JSON.stringify({
-      account_number: this.account.account_number.toString(),
-      chain_id: CHAIN_ID,
-      fee: sortJSON(tx['fee']),
-      memo: tx['memo'],
-      msgs: sortJSON(tx['msg']),
-      sequence: this.account.sequence.toString(),
-    });
-
-    const pubKeyValue = Buffer.from(this.getPublicKey(), 'hex').toString(
-      'base64'
-    );
-
-    const hash = shajs('sha256').update(Buffer.from(m)).digest('hex');
-    const sig = convertSignature(
-      secp256k1.sign(hash, this.privateKey, 'hex', { canonical: true })
-    ).toString('base64');
-
-    tx.signatures = [
-      {
-        pub_key: {
-          type: 'tendermint/PubKeySecp256k1',
-          value: pubKeyValue,
-        },
-        signature: sig,
-        account_number: this.account.account_number.toString(),
-        sequence: this.account.sequence.toString(),
-      },
-    ];
-
-    const response = await xhr('post', '/txs', {
-      tx,
-      mode: 'block',
-    });
-    const { data, raw_log } = response;
-    if (!('code' in response)) {
-      this.account.sequence += 1;
-      if (!data) {
-        return;
-      }
-      const hex = data.toString('hex');
-      return hex ? JSON.parse(hex) : {};
-    }
-
-    if (~raw_log.indexOf('signature verification failed')) {
-      this.broadcastRetries += 1;
-      console.warn(
-        'transaction failed ... retrying(%d) ...',
-        this.broadcastRetries
+export default new (class extends Cosmos {
+  async xhr(method, endpoint, data) {
+    NProgress.start();
+    NProgress.set(0.4);
+    try {
+      const res = await fetch(
+        window.location.hostname === 'localhost'
+          ? 'http://localhost:7878'
+          : '/',
+        {
+          method: 'POST',
+          body: JSON.stringify({ data, endpoint, method }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
       );
-      if (this.broadcastRetries >= BROADCAST_MAX_RETRIES) {
-        throw new Error('transaction failed after max retry attempts');
-      }
-      await sleep(BROADCAST_RETRY_INTERVAL_SECONDS * 1000);
-      // lookup changed sequence
-      await this.loadAccount();
-      return await this.broadcastSignedTransaction(tx);
+      return res.json();
+    } finally {
+      NProgress.done();
     }
-
-    throw new Error(raw_log);
   }
-})();
-
-function sortJSON(obj) {
-  if (
-    obj === null ||
-    ~['undefined', 'string', 'number', 'boolean', 'function'].indexOf(
-      typeof obj
-    )
-  ) {
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.sort().map((i) => sortJSON(i));
-  } else {
-    const sortedObj = {};
-
-    Object.keys(obj)
-      .sort()
-      .forEach((key) => {
-        sortedObj[key] = sortJSON(obj[key]);
-      });
-
-    return sortedObj;
-  }
-}
-
-function convertSignature(sig) {
-  let r = new BN(sig.r);
-
-  if (r.cmp(secp256k1.curve.n) >= 0) {
-    r = new BN(0);
-  }
-
-  let s = new BN(sig.s);
-  if (s.cmp(secp256k1.curve.n) >= 0) {
-    s = new BN(0);
-  }
-
-  return Buffer.concat([
-    r.toArrayLike(Buffer, 'be', 32),
-    s.toArrayLike(Buffer, 'be', 32),
-  ]);
-}
-
-function makeRandomString(length) {
-  let result = '';
-  const characters =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const charactersLength = characters.length;
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return result;
-}
-
-async function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
+})({
+  // host: API_HOST,
+  chainId: CHAIN_ID,
+});
