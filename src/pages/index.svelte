@@ -52,9 +52,12 @@
 
   async function onAddKey() {
     try {
-      await account.tx('post', '/crud/create', { Key: Date.now().toString(), UUID: address, Value: 'value' });
-      sl('success', 'ADDED KEY!');
-      await loadKVs();
+      const Key = prompt('Key?');
+      if (Key) {
+        await account.tx('post', '/crud/create', { Key, UUID: address, Value: 'value' });
+        sl('success', 'ADDED KEY!');
+        await loadKVs();
+      }
     } catch (e) {
       sl('error', e);
     }
