@@ -1,4 +1,6 @@
-![](https://i.imgur.com/viRKt7A.png)
+<div align="center">
+    <img src="https://i.imgur.com/viRKt7A.png" alt="screenshot" width="400" />
+</div>
 
 ### Bluzelle client-side only dapp demo
 
