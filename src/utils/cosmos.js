@@ -17,9 +17,10 @@ const HD_PATH = "m/44'/118'/0'/0/0"; // eslint-disable-line quotes
 const secp256k1 = new ec.ec('secp256k1');
 
 export default class {
-  constructor({ host, chainId }) {
+  constructor({ host, chainId, gasInfo }) {
     this.host = host;
     this.chainId = chainId;
+    this.gasInfo = gasInfo;
   }
 
   async loadPrivateKeyFromMnemonic(mnemonic) {
@@ -68,7 +69,7 @@ export default class {
   }
 
   async query(endpoint) {
-    return (await this.xhr('get', endpoint)).result;
+    return await this.xhr('get', endpoint);
   }
 
   async tx(method, endpoint, data) {
@@ -82,22 +83,27 @@ export default class {
       method,
       endpoint,
       sortJSON({
-        BaseReq: {
-          chain_id: this.chainId,
-          from: this.address,
-        },
-        Owner: this.address,
+        ...this.generateBaseRequestPayload(),
         ...data,
       })
     );
     return tx;
   }
 
+  generateBaseRequestPayload() {
+    return {
+      base_req: {
+        chain_id: this.chainId,
+        from: this.address,
+      },
+    };
+  }
+
   async broadcastSignedTransaction(tx) {
     tx.memo = makeRandomString(32);
 
     tx.fee = {
-      amount: [{ amount: '4000001', denom: 'ubnt' }],
+      amount: [{ amount: this.gasInfo.minFee, denom: this.gasInfo.denom }],
       gas: tx.fee.gas,
     };
 
@@ -166,17 +172,17 @@ export default class {
 
   async xhr(method, endpoint, data) {
     const opts = {};
-    if (method !== 'get') {
-      if (data) {
-        opts.body = JSON.stringify(data);
-      }
+    if (data) {
+      opts.method = method.toUpperCase();
+      opts.body = JSON.stringify(data);
       opts.headers = {
+        Accept: 'application/json',
         'Content-Type': 'application/json',
       };
     }
     const res = await fetch(`${this.host}${endpoint}`, opts);
-    const { result } = await res.json();
-    return result;
+    const response = await res.json();
+    return response.result || response; // todo
   }
 }
 

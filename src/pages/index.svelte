@@ -47,7 +47,7 @@
 
   async function onAddKey() {
     try {
-      const Key = prompt('Key?');
+      const Key = prompt('KEY:');
       if (Key) {
         await account.tx('post', '/crud/create', {
         Key,
@@ -85,76 +85,72 @@
 </script>
 
 <style>
-  .main-container {
-    min-width: 960px;
-  }
+
 </style>
 
-<div class="flex justify-center">
-  <div class="main-container flex flex-col">
+<div class="flex flex-grow flex-col">
+  {#if address}
+      <!-- -->
+  {:else}
+    <div class="mb-5">
+      <small>sample mnemonic: <strong>around buzz diagram captain obtain detail salon mango muffin brother morning
+      jeans display attend knife carry green dwarf vendor hungry fan route pumpkin car</strong></small>
+    </div>
+  {/if}
+
+  <div class="flex mb-5 items-center">
+    <h1 class="main-heading flex-grow">BLUZELLE</h1>
     {#if address}
-        <!-- -->
+      <button class="button is-light is-small ml-2" on:click={disconnectAccount}>
+        DISCONNECT
+      </button>
     {:else}
-      <div class="mb-5">
-        <small>sample mnemonic: <strong>around buzz diagram captain obtain detail salon mango muffin brother morning
-        jeans display attend knife carry green dwarf vendor hungry fan route pumpkin car</strong></small>
-      </div>
+      <button class="button is-light is-small" on:click={connectAccount}>
+        CONNECT
+      </button>
     {/if}
+  </div>
 
+  {#if address}
+    <div class="mb-5">
+      <div>Account: {address}</div>
+      <div>Balance: {balance}ubnt</div>
+      <div>UUID: {address}</div>
+    </div>
     <div class="flex mb-5 items-center">
-      <h1 class="main-heading flex-grow">BLUZELLE</h1>
-      {#if address}
-        <button class="button is-light is-small ml-2" on:click={disconnectAccount}>
-          DISCONNECT
-        </button>
-      {:else}
-        <button class="button is-light is-small" on:click={connectAccount}>
-          CONNECT
-        </button>
-      {/if}
+      <h1 class="main-heading mr-5">KEYS</h1>
+      <button class="button is-light is-small" on:click={onAddKey}>
+        +ADD
+      </button>
+      <div class="flex flex-grow"></div>
+      <button class="button is-light is-small" on:click={onDeleteAll}>
+        DELETE ALL
+      </button>
     </div>
+  {/if}
 
-    {#if address}
-      <div class="mb-5">
-        <div>Account: {address}</div>
-        <div>Balance: {balance}ubnt</div>
-        <div>UUID: {address}</div>
-      </div>
-      <div class="flex mb-5 items-center">
-        <h1 class="main-heading mr-5">KEYS</h1>
-        <button class="button is-light is-small" on:click={onAddKey}>
-          +ADD
-        </button>
-        <div class="flex flex-grow"></div>
-        <button class="button is-light is-small" on:click={onDeleteAll}>
-          DELETE ALL
-        </button>
-      </div>
-    {/if}
-
-    <div class="flex flex-grow">
-      <table class="table flex-grow">
-        <thead>
+  <div class="flex flex-grow">
+    <table class="table flex-grow">
+      <thead>
+      <tr>
+        <th>Key</th>
+        <th>Value</th>
+        <th></th>
+      </tr>
+      </thead>
+      <tbody>
+      {#each kvs as kv}
         <tr>
-          <th>Key</th>
-          <th>Value</th>
-          <th></th>
+          <td>{kv.key}</td>
+          <td>{kv.value}</td>
+          <td>
+            <button class="button is-light is-small" on:click={() => onDeleteKey(kv.key)}>
+              DELETE
+            </button>
+          </td>
         </tr>
-        </thead>
-        <tbody>
-        {#each kvs as kv}
-          <tr>
-            <td>{kv.key}</td>
-            <td>{kv.value}</td>
-            <td>
-              <button class="button is-light is-small" on:click={() => onDeleteKey(kv.key)}>
-                DELETE
-              </button>
-            </td>
-          </tr>
-        {/each}
-        </tbody>
-      </table>
-    </div>
+      {/each}
+      </tbody>
+    </table>
   </div>
 </div>

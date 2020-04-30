@@ -1,1 +1,1 @@
-web: node proxy/proxy.js
+web: bin/start-nginx-solo
