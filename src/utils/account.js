@@ -1,11 +1,7 @@
 import NProgress from 'nprogress';
 import Cosmos from './cosmos';
 
-// const API_HOST = 'http://testnet.public.bluzelle.com:1317';
-const API_HOST =
-  window.location.hostname === 'localhost'
-    ? 'http://localhost:1319'
-    : 'https://bluzelle-client-side-demo.herokuapp.com/blz-chain-proxy';
+const API_HOST = 'http://testnet.public.bluzelle.com:1317';
 const CHAIN_ID = 'bluzelle';
 
 export default new (class extends Cosmos {

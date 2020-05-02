@@ -4,7 +4,7 @@
 
 ### Bluzelle client-side only dapp demo
 
-Sample dapp to demonstrate access to the Bluzelle Service without a server component (though uses a proxy at the moment until cors is enabled).
+Sample dapp to demonstrate access to the Bluzelle Service without a server component.
 All transaction signing and private key derivation from provided mnemonic happens client-side.
 
 ### Demo

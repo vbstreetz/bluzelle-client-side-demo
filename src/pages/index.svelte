@@ -5,7 +5,7 @@
   const ADDRESS_PREFIX = 'bluzelle';
 
   let address;
-  let balance;
+  let balance = 0;
   let kvs = [];
 
   onMount(async function () {

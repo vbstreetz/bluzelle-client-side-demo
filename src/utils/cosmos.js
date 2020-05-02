@@ -265,3 +265,11 @@ function cache(k, v) {
       return;
   }
 }
+
+export function toMicro(n) {
+  return n * Math.pow(10, 6);
+}
+
+export function fromMicro(n) {
+  return n / Math.pow(10, 6);
+}
