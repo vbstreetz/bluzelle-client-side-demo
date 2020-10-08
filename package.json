@@ -63,7 +63,7 @@
     "bip39": "^3.0.2",
     "bitcoinjs-lib": "^5.1.7",
     "buffer": "^5.2.1",
-    "elliptic": "^6.4.1",
+    "elliptic": "^6.5.3",
     "bulma": "^0.8.2",
     "moment": "^2.24.0",
     "nprogress": "0.2.0",
